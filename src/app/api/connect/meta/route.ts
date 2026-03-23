@@ -7,9 +7,13 @@ import { NextResponse } from 'next/server';
  */
 export async function GET() {
   const clientId = process.env.META_CLIENT_ID;
-  const redirectUri = process.env.META_REDIRECT_URI;
-
-  if (!clientId || !redirectUri) {
+  
+  // Auto-calculate the redirect URI perfectly using Vercel's global vars
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
+  const appUrl = host ? `https://${host}` : 'http://localhost:3000';
+  const redirectUri = `${appUrl}/api/connect/meta/callback`;
+  
+  if (!clientId) {
     return NextResponse.json(
       { error: 'Meta OAuth is not configured. Set META_CLIENT_ID and META_REDIRECT_URI in .env.' },
       { status: 500 }

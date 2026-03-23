@@ -6,10 +6,14 @@ import { NextResponse } from 'next/server';
  * Scopes cover: YouTube Data API (channel/video metadata) + YouTube Analytics API.
  */
 export async function GET() {
-  const clientId    = process.env.YOUTUBE_CLIENT_ID;
-  const redirectUri = process.env.YOUTUBE_REDIRECT_URI;
-
-  if (!clientId || !redirectUri) {
+  const clientId = process.env.YOUTUBE_CLIENT_ID;
+  
+  // Auto-calculate the redirect URI perfectly using Vercel's global vars
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
+  const appUrl = host ? `https://${host}` : 'http://localhost:3000';
+  const redirectUri = `${appUrl}/api/connect/youtube/callback`;
+  
+  if (!clientId) {
     return NextResponse.json(
       { error: 'YouTube OAuth is not configured. Set YOUTUBE_CLIENT_ID and YOUTUBE_REDIRECT_URI in .env.' },
       { status: 500 }
