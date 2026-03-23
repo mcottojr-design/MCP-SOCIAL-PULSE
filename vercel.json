@@ -5,5 +5,15 @@
   "regions": ["iad1"],
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/sync/youtube",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/sync/meta",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }
