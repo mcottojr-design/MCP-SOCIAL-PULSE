@@ -13,8 +13,12 @@ export async function GET(request: Request) {
   const code  = searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');
-  // Auto-detect the domain (Vercel) so we don't need env vars
-  const appUrl = reqUrl.origin;
+  
+  // Vercel routes traffic through a proxy, so the internal node URL is always localhost.
+  // We MUST read the x-forwarded-host header to get the real domain.
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  const proto = request.headers.get('x-forwarded-proto') || 'https';
+  const appUrl = host ? `${proto}://${host}` : 'http://localhost:3000';
 
   // --- Error from Google ---
   if (error) {
