@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Build outputs
+build/
+dist/
+coverage/
+
+# Prisma generated client
+prisma/generated/
+
+# Environment (NEVER commit secrets)
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+*.log
+*.pem
+
+# Vercel
+.vercel
+
+# Static dashboard (design artifact — not app source)
+static-dashboard/

@@ -1,0 +1,109 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id            String         @id @default(cuid())
+  platform      Platform
+  nativeId      String         @unique // ID from Meta/YouTube
+  name          String
+  handle        String?
+  profileUrl    String?
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+  lastSyncedAt  DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  contentItems  ContentItem[]
+  dailyMetrics  DailyMetric[]
+  syncJobs      SyncJob[]
+  connection    OAuthConnection?
+}
+
+model ContentItem {
+  id            String         @id @default(cuid())
+  accountId     String
+  account       Account        @relation(fields: [accountId], references: [id])
+  nativeId      String         @unique
+  type          ContentType
+  title         String?
+  description   String?
+  url           String?
+  thumbnailUrl  String?
+  publishedAt   DateTime
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  metrics       Json?          // Snapshot of metrics
+}
+
+model DailyMetric {
+  id            String         @id @default(cuid())
+  accountId     String
+  account       Account        @relation(fields: [accountId], references: [id])
+  date          DateTime
+  reach         Int            @default(0)
+  impressions   Int            @default(0)
+  views         Int            @default(0)
+  engagements   Int            @default(0)
+  watchTime     Float          @default(0) // In hours or minutes
+  linkClicks    Int            @default(0)
+  followersGained Int          @default(0)
+  rawMetrics    Json?          // Native platform metrics
+  createdAt     DateTime       @default(now())
+
+  @@unique([accountId, date])
+}
+
+model SyncJob {
+  id            String         @id @default(cuid())
+  accountId     String
+  account       Account        @relation(fields: [accountId], references: [id])
+  status        SyncStatus     @default(PENDING)
+  startTime     DateTime       @default(now())
+  endTime       DateTime?
+  error         String?
+  createdAt     DateTime       @default(now())
+}
+
+model OAuthConnection {
+  id            String         @id @default(cuid())
+  accountId     String         @unique
+  account       Account        @relation(fields: [accountId], references: [id])
+  provider      Platform
+  accessToken   String
+  refreshToken  String?
+  expiresAt     DateTime?
+  scopes        String[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  YOUTUBE
+}
+
+enum ContentType {
+  POST
+  REEL
+  STORY
+  VIDEO
+  SHORT
+}
+
+enum SyncStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}

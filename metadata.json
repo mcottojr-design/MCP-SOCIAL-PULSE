@@ -1,0 +1,5 @@
+{
+  "name": "MCP SocialPulse",
+  "description": "A production-ready MVP for private social media analytics, supporting Meta and YouTube integrations with a clean, modular architecture.",
+  "requestFramePermissions": []
+}
