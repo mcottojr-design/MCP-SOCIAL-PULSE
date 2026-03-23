@@ -1,34 +1,27 @@
-import { NextResponse } from 'next/server';
-import { youtubeAnalyticsService } from '@/src/services/youtube.service';
-import { metricsNormalizer } from '@/src/services/metrics-normalizer';
+import { NextResponse, NextRequest } from 'next/server';
+import { syncYouTubeMetrics } from '@/src/services/youtube.service';
+import { logger } from '@/src/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 /**
- * Route: /api/sync/youtube
- * Triggers a manual sync for YouTube accounts
+ * Route: GET /api/sync/youtube
+ * To be called by Vercel Cron to trigger the Daily Sync jobs.
  */
-export async function POST(request: Request) {
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization');
+  const CRON_SECRET = process.env.CRON_SECRET; 
+
+  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+    logger.warn('YouTubeSync', 'Unauthorized execution attempt');
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
   try {
-    const { accountId } = await request.json();
-    
-    // 1. Fetch raw data from YouTube
-    const rawData = await youtubeAnalyticsService.getMetrics(accountId, { 
-      from: new Date(Date.now() - 86400000 * 30), // Last 30 days
-      to: new Date() 
-    });
-    
-    // 2. Normalize data
-    const normalized = metricsNormalizer.normalizeYouTube(rawData);
-    
-    // 3. TODO: Store in Prisma database
-    // await prisma.dailyMetric.upsert({ ... });
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: `Successfully synced YouTube account: ${accountId}`,
-      data: normalized
-    });
+    const result = await syncYouTubeMetrics();
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('[SyncYouTube] Sync failed:', error);
-    return NextResponse.json({ success: false, error: "Sync failed" }, { status: 500 });
+    logger.error('YouTubeSync', 'Uncaught runtime error during sync', { error });
+    return NextResponse.json({ error: 'Sync failed' }, { status: 500 });
   }
 }

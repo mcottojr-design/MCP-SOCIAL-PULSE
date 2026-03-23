@@ -1,34 +1,28 @@
-import { NextResponse } from 'next/server';
-import { metaService } from '@/src/services/meta.service';
-import { metricsNormalizer } from '@/src/services/metrics-normalizer';
+import { NextResponse, NextRequest } from 'next/server';
+import { syncMetaMetrics } from '@/src/services/meta.service';
+import { logger } from '@/src/lib/logger';
+
+export const dynamic = 'force-dynamic';
 
 /**
- * Route: /api/sync/meta
- * Triggers a manual sync for Meta accounts
+ * Route: GET /api/sync/meta
+ * To be called by Vercel Cron. Requires an Authorization header with a defined Cron secret
+ * to prevent authorized requests from draining rate limits.
  */
-export async function POST(request: Request) {
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization');
+  const CRON_SECRET = process.env.CRON_SECRET; 
+
+  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+    logger.warn('MetaSync', 'Unauthorized execution attempt');
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
+
   try {
-    const { accountId } = await request.json();
-    
-    // 1. Fetch raw data from Meta
-    const rawData = await metaService.getInsights(accountId, { 
-      from: new Date(Date.now() - 86400000 * 30), // Last 30 days
-      to: new Date() 
-    });
-    
-    // 2. Normalize data
-    const normalized = metricsNormalizer.normalizeMeta(rawData, 'INSTAGRAM'); // Example
-    
-    // 3. TODO: Store in Prisma database
-    // await prisma.dailyMetric.upsert({ ... });
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: `Successfully synced Meta account: ${accountId}`,
-      data: normalized
-    });
+    const result = await syncMetaMetrics();
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('[SyncMeta] Sync failed:', error);
-    return NextResponse.json({ success: false, error: "Sync failed" }, { status: 500 });
+    logger.error('MetaSync', 'Uncaught runtime error during sync', { error });
+    return NextResponse.json({ error: 'Sync failed' }, { status: 500 });
   }
 }
