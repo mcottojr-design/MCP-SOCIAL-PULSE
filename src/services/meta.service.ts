@@ -1,18 +1,18 @@
 import { prisma } from '@/src/lib/prisma';
 import { logger } from '@/src/lib/logger';
-import { startOfDay, subDays, format } from 'date-fns';
+import { startOfDay, subDays } from 'date-fns';
 
 const META_GRAPH_BASE = 'https://graph.facebook.com/v20.0';
 
 /**
  * syncMetaMetrics
  * 
- * Fetches yesterday's insights (Reach, Impressions, Engagement) for all connected
+ * Fetches the last 30 days of insights (Reach, Impressions, Engagement) for all connected
  * Facebook Pages and Instagram Professional Accounts.
  * Upserts the results into the DailyMetric table.
  */
 export async function syncMetaMetrics() {
-  logger.info('MetaService', 'Starting Meta metrics sync job');
+  logger.info('MetaService', 'Starting Meta metrics sync job (30-day backfill)');
 
   // Fetch all Meta accounts
   const accounts = await prisma.account.findMany({
@@ -27,9 +27,9 @@ export async function syncMetaMetrics() {
     return { success: true, accountsSynced: 0 };
   }
 
-  // Define the time window: yesterday
-  const yesterday = subDays(startOfDay(new Date()), 1);
-  const sinceTimestamp = Math.floor(yesterday.getTime() / 1000);
+  // Define the time window: 30 days ago until today
+  const thirtyDaysAgo = subDays(startOfDay(new Date()), 30);
+  const sinceTimestamp = Math.floor(thirtyDaysAgo.getTime() / 1000);
   const untilTimestamp = Math.floor(startOfDay(new Date()).getTime() / 1000);
 
   let successCount = 0;
@@ -38,12 +38,10 @@ export async function syncMetaMetrics() {
   for (const account of accounts) {
     try {
       const accessToken = account.accessToken!;
-      let reach = 0;
-      let impressions = 0;
-      let engagements = 0;
+      
+      const dailyData: Record<string, { reach: number, impressions: number, engagements: number }> = {};
 
       if (account.platform === 'FACEBOOK') {
-        // Facebook Page Insights
         const params = new URLSearchParams({
           metric: 'page_impressions_unique,page_impressions,page_post_engagements',
           period: 'day',
@@ -57,16 +55,18 @@ export async function syncMetaMetrics() {
 
         const { data } = await res.json();
         
-        // Parse the returned data array back into standard integers
         data.forEach((insight: any) => {
-           const val = insight.values?.[0]?.value || 0;
-           if (insight.name === 'page_impressions_unique') reach = val;
-           if (insight.name === 'page_impressions') impressions = val;
-           if (insight.name === 'page_post_engagements') engagements = val;
+           insight.values?.forEach((valObj: any) => {
+             const dayRaw = valObj.end_time.split('T')[0];
+             if (!dailyData[dayRaw]) dailyData[dayRaw] = { reach: 0, impressions: 0, engagements: 0 };
+             
+             if (insight.name === 'page_impressions_unique') dailyData[dayRaw].reach = valObj.value || 0;
+             if (insight.name === 'page_impressions') dailyData[dayRaw].impressions = valObj.value || 0;
+             if (insight.name === 'page_post_engagements') dailyData[dayRaw].engagements = valObj.value || 0;
+           });
         });
 
       } else if (account.platform === 'INSTAGRAM') {
-        // Instagram Insights
         const params = new URLSearchParams({
           metric: 'reach,impressions,total_interactions',
           period: 'day',
@@ -81,36 +81,40 @@ export async function syncMetaMetrics() {
         const { data } = await res.json();
         
         data.forEach((insight: any) => {
-          const val = insight.values?.[0]?.value || 0;
-          if (insight.name === 'reach') reach = val;
-          if (insight.name === 'impressions') impressions = val;
-          if (insight.name === 'total_interactions') engagements = val;
+          insight.values?.forEach((valObj: any) => {
+            const dayRaw = valObj.end_time.split('T')[0];
+            if (!dailyData[dayRaw]) dailyData[dayRaw] = { reach: 0, impressions: 0, engagements: 0 };
+            
+            if (insight.name === 'reach') dailyData[dayRaw].reach = valObj.value || 0;
+            if (insight.name === 'impressions') dailyData[dayRaw].impressions = valObj.value || 0;
+            if (insight.name === 'total_interactions') dailyData[dayRaw].engagements = valObj.value || 0;
+          });
         });
       }
 
-      // Upsert the metric data into the database
-      await prisma.dailyMetric.upsert({
-        where: {
-          accountId_date: {
-            accountId: account.id,
-            date: yesterday,
+      // Bulk upsert all days into the database
+      for (const [dayString, metrics] of Object.entries(dailyData)) {
+        const rowDate = new Date(dayString);
+        await prisma.dailyMetric.upsert({
+          where: {
+            accountId_date: { accountId: account.id, date: rowDate },
           },
-        },
-        create: {
-          accountId: account.id,
-          date: yesterday,
-          reach,
-          impressions,
-          engagements,
-          rawMetrics: { syncedAt: new Date().toISOString() }, // Store raw debug context
-        },
-        update: {
-          reach,
-          impressions,
-          engagements,
-          rawMetrics: { syncedAt: new Date().toISOString(), updated: true },
-        },
-      });
+          create: {
+            accountId: account.id,
+            date: rowDate,
+            reach: metrics.reach,
+            impressions: metrics.impressions,
+            engagements: metrics.engagements,
+            rawMetrics: { syncedAt: new Date().toISOString() },
+          },
+          update: {
+            reach: metrics.reach,
+            impressions: metrics.impressions,
+            engagements: metrics.engagements,
+            rawMetrics: { syncedAt: new Date().toISOString(), updated: true },
+          },
+        });
+      }
 
       // Update the lastSyncedAt timestamp on the account
       await prisma.account.update({
@@ -127,9 +131,5 @@ export async function syncMetaMetrics() {
 
   logger.info('MetaService', `Sync complete. Success: ${successCount}, Errors: ${errorCount}`);
   
-  return { 
-    success: true, 
-    accountsSynced: successCount, 
-    errors: errorCount 
-  };
+  return { success: true, accountsSynced: successCount, errors: errorCount };
 }
