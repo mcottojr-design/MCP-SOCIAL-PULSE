@@ -8,11 +8,13 @@ import { exchangeGoogleCode, fetchYouTubeChannel } from '@/src/lib/providers/you
  * Exchanges the code for access + refresh tokens and upserts Account + OAuthConnection records.
  */
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+  const reqUrl = new URL(request.url);
+  const { searchParams } = reqUrl;
   const code  = searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');
-  const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+  // Auto-detect the domain (Vercel) so we don't need env vars
+  const appUrl = reqUrl.origin;
 
   // --- Error from Google ---
   if (error) {
