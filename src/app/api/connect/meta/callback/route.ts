@@ -14,11 +14,9 @@ export async function GET(request: Request) {
   const state = searchParams.get('state');
   const error = searchParams.get('error');
   
-  // Vercel routes traffic through a proxy, so the internal node URL is always localhost.
-  // We MUST read the x-forwarded-host header to get the real domain.
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
-  const proto = request.headers.get('x-forwarded-proto') || 'https';
-  const appUrl = host ? `${proto}://${host}` : 'http://localhost:3000';
+  // Vercel auto-injects VERCEL_PROJECT_PRODUCTION_URL and VERCEL_URL
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
+  const appUrl = host ? `https://${host}` : 'http://localhost:3000';
 
   // --- Error from Meta ---
   if (error) {
