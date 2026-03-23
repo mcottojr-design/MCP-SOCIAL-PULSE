@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * For a harder lock, replace this with an IP allowlist or
  * a proper session-based auth (NextAuth.js) in the future.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Skip auth check for the API callback routes — Meta/Google redirect here
   const pathname = request.nextUrl.pathname;
   if (
