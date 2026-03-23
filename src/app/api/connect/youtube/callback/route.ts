@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
   try {
     // 1. Exchange authorization code for access + refresh tokens
-    const tokens = await exchangeGoogleCode(code);
+    const tokens = await exchangeGoogleCode(code, appUrl);
 
     // 2. Fetch the connected YouTube channel info using the access token
     const channel = await fetchYouTubeChannel(tokens.access_token);

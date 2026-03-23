@@ -35,10 +35,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Exchange authorization code for tokens
-    const tokens = await exchangeMetaCode(code);
+    // 1. Exchange the code for a long-lived user token
+    const tokens = await exchangeMetaCode(code, appUrl);
 
-    // 2. Fetch the admin's connected Facebook Pages
+    // 2. Log in and get all managed Facebook Pages
     const pages = await fetchMetaPages(tokens.access_token);
 
     for (const page of pages) {

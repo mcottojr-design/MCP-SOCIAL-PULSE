@@ -50,10 +50,10 @@ export interface YouTubeChannel {
 // Exchanges an authorization code for access + refresh tokens.
 // Requires access_type=offline and prompt=consent from the auth URL.
 // ----------------------------------------------------------------
-export async function exchangeGoogleCode(code: string): Promise<GoogleTokenResponse> {
+export async function exchangeGoogleCode(code: string, appUrl: string): Promise<GoogleTokenResponse> {
   const clientId     = process.env.YOUTUBE_CLIENT_ID!;
   const clientSecret = process.env.YOUTUBE_CLIENT_SECRET!;
-  const redirectUri  = process.env.YOUTUBE_REDIRECT_URI!;
+  const redirectUri  = `${appUrl}/api/connect/youtube/callback`;
 
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',

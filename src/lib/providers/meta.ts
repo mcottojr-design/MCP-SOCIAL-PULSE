@@ -41,10 +41,10 @@ export interface MetaIGAccount {
 // Exchanges a short-lived code for a user access token, then
 // immediately upgrades it to a 60-day long-lived token.
 // ----------------------------------------------------------------
-export async function exchangeMetaCode(code: string): Promise<MetaTokenResponse> {
+export async function exchangeMetaCode(code: string, appUrl: string): Promise<MetaTokenResponse> {
   const clientId     = process.env.META_CLIENT_ID!;
   const clientSecret = process.env.META_CLIENT_SECRET!;
-  const redirectUri  = process.env.META_REDIRECT_URI!;
+  const redirectUri  = `${appUrl}/api/connect/meta/callback`;
 
   // Step 1: Short-lived user access token
   const shortParams = new URLSearchParams({
