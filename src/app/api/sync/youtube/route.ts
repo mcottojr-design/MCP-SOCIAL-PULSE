@@ -20,8 +20,12 @@ export async function GET(req: NextRequest) {
   try {
     const result = await syncYouTubeMetrics();
     return NextResponse.json(result);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('YouTubeSync', 'Uncaught runtime error during sync', { error });
-    return NextResponse.json({ error: 'Sync failed' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Sync failed', 
+      message: error?.message || String(error),
+      stack: error?.stack
+    }, { status: 500 });
   }
 }
